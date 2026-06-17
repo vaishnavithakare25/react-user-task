@@ -2,43 +2,49 @@ import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {login} from "../api/authService"
 import {useAuthStore} from "../store/authStore"
+import {z} from "zod";
+
+const loginSchema = z.object({
+  username: z.string()
+              .min(1, "username is requried"),
+
+  password: z.string()
+             .min(1, "password is requried")
+             .min(6, "passwoed must be at least 6 character")
+})
 
 
 const Login = () => {
-    // const response = await Login(data);
-    // console.log(response);
     const navigate = useNavigate();
    
     const [username, setusername] = useState("")
     const [password, setpassword] = useState("")
-    const [usernameerror, setusernameerror] = useState("")
-    const [passworderror, setpassworderror] = useState("")
-    const [error, seterror] = useState("")
+    const [error, seterror] = useState<{username?: string; password?: string; login?: string;}>({});
     const [loading, setloading] = useState(false)
 
     const loginuser = useAuthStore((state)=>state.login);
 
     const handlelogin = async(e)=>{
         e.preventDefault();
-         seterror("");
+         seterror({});
          setusername("");
          setpassword("");
 
-         let isvalid = true;
+         const result = loginSchema.safeParse({
+          username,
+          password,
+        })
+        if(!result.success){
+          const failederror = result.error.flatten().fieldErrors;
 
-         if(!username.trim()){
-            setusernameerror("username is required");
-            isvalid=false;
-         }
+          seterror({
+            username: failederror.username?.[0],
+            password: failederror.password?.[0],
+          });
 
-         if(!password.trim()){
-            setpassworderror("password is required");
-            isvalid=false;
-         }else if(password.length<6){
-            setpassworderror("password must be atleast 6 digit");
-            isvalid= false;
-         }
-         if(!isvalid) return;
+          return;
+        }
+
 
          try{
             setloading(true);
@@ -49,16 +55,11 @@ const Login = () => {
             loginuser(response);
             navigate("/dashboard");
          }catch(error){
-            seterror("invalid username or password")
+            seterror({login : "invalid username or password"})
          } finally{
             setloading(false);
          }
 
-    const response = await login({
-        username,
-        password,
-    });
-    console.log(response)
          
     }
     return (
@@ -74,8 +75,9 @@ const Login = () => {
             placeholder="enter username"
             className="w-full border p-2 mb-3 rounded"
           />
-          {usernameerror && (
-            <p className='mt-1 text-sm text-red-500'>{usernameerror}</p>
+        
+           {error.username && (
+            <p className='text-red-500'>{error.username}</p>
           )}
 
           <input
@@ -86,12 +88,14 @@ const Login = () => {
             className="w-full border p-2 mb-4 rounded"
           />
 
-          {passworderror && (
-            <p className='mt-1 text-sm text-red-500'>{passworderror}</p>
+       
+
+          {error.password && (
+            <p className='text-red-500'>{error.password}</p>
           )}
 
-          {error && (
-            <p className='mt-1 text-sm text-red-500'>{error}</p>
+           {error.login && (
+            <p className='mt-1 text-sm text-red-500'>{error.login}</p>
           )}
           
 
